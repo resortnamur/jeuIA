@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Le Carré Infernal - Jeu de départ</title>
+<style>
+    :root{
+        --bg:#111827;
+        --panel:#1f2937;
+        --text:#f9fafb;
+        --muted:#cbd5e1;
+        --player:#60a5fa;
+        --coin:#facc15;
+    }
+    *{box-sizing:border-box}
+    body{
+        margin:0;
+        min-height:100vh;
+        display:flex;
+        align-items:center;
+        justify-content:center;
+        background:var(--bg);
+        color:var(--text);
+        font-family:Arial, Helvetica, sans-serif;
+    }
+    .wrap{
+        width:min(900px, 96vw);
+    }
+    h1{
+        margin:0 0 8px;
+        font-size:clamp(24px,4vw,38px);
+    }
+    .subtitle{
+        color:var(--muted);
+        margin-bottom:16px;
+    }
+    .topbar{
+        display:flex;
+        justify-content:space-between;
+        align-items:center;
+        gap:12px;
+        margin-bottom:10px;
+        background:var(--panel);
+        padding:10px 14px;
+        border-radius:12px;
+    }
+    #game{
+        position:relative;
+        width:100%;
+        aspect-ratio:16 / 9;
+        min-height:360px;
+        max-height:620px;
+        overflow:hidden;
+        border:2px solid #374151;
+        border-radius:14px;
+        background:#0b1220;
+        box-shadow:0 16px 40px rgba(0,0,0,.35);
+    }
+    #player, #coin{
+        position:absolute;
+        transform:translate(-50%,-50%);
+    }
+    #player{
+        width:40px;
+        height:40px;
+        background:var(--player);
+        border-radius:8px;
+    }
+    #coin{
+        width:24px;
+        height:24px;
+        background:var(--coin);
+        border-radius:50%;
+        box-shadow:0 0 16px rgba(250,204,21,.65);
+    }
+    .help{
+        margin-top:12px;
+        color:var(--muted);
+        font-size:14px;
+        line-height:1.5;
+    }
+    kbd{
+        background:#374151;
+        padding:2px 6px;
+        border-radius:5px;
+        color:white;
+    }
+</style>
+</head>
+<body>
+<div class="wrap">
+    <h1>Le Carré Infernal</h1>
+    <div class="subtitle">Version de départ — volontairement minimaliste.</div>
+
+    <div class="topbar">
+        <strong>Score : <span id="score">0</span></strong>
+        <span>Attrape la pièce jaune.</span>
+    </div>
+
+    <div id="game">
+        <div id="player"></div>
+        <div id="coin"></div>
+    </div>
+
+    <div class="help">
+        Déplacement : <kbd>←</kbd> <kbd>↑</kbd> <kbd>↓</kbd> <kbd>→</kbd><br>
+        Règle : toucher la pièce = +1 point et la pièce réapparaît ailleurs.
+    </div>
+</div>
+
+<script>
+const game = document.getElementById("game");
+const player = document.getElementById("player");
+const coin = document.getElementById("coin");
+const scoreEl = document.getElementById("score");
+
+let score = 0;
+
+// Positions exprimées en pourcentage pour s'adapter à la taille de l'écran.
+let playerPos = { x: 50, y: 50 };
+let coinPos = { x: 70, y: 40 };
+
+const step = 3;
+
+function render() {
+    player.style.left = playerPos.x + "%";
+    player.style.top = playerPos.y + "%";
+    coin.style.left = coinPos.x + "%";
+    coin.style.top = coinPos.y + "%";
+}
+
+function randomCoinPosition() {
+    coinPos.x = 8 + Math.random() * 84;
+    coinPos.y = 10 + Math.random() * 80;
+}
+
+function distance(a, b) {
+    const dx = a.x - b.x;
+    const dy = a.y - b.y;
+    return Math.sqrt(dx * dx + dy * dy);
+}
+
+function checkCoinCollision() {
+    if (distance(playerPos, coinPos) < 5) {
+        score++;
+        scoreEl.textContent = score;
+        randomCoinPosition();
+    }
+}
+
+document.addEventListener("keydown", (event) => {
+    const key = event.key;
+
+    if (["ArrowLeft","ArrowRight","ArrowUp","ArrowDown"].includes(key)) {
+        event.preventDefault();
+    }
+
+    if (key === "ArrowLeft")  playerPos.x -= step;
+    if (key === "ArrowRight") playerPos.x += step;
+    if (key === "ArrowUp")    playerPos.y -= step;
+    if (key === "ArrowDown")  playerPos.y += step;
+
+    // Empêche le joueur de sortir du terrain.
+    playerPos.x = Math.max(3, Math.min(97, playerPos.x));
+    playerPos.y = Math.max(5, Math.min(95, playerPos.y));
+
+    checkCoinCollision();
+    render();
+});
+
+randomCoinPosition();
+render();
+</script>
+</body>
+</html>

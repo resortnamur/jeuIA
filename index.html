@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="color-scheme" content="dark" />
+  <title>Jeu IA en chaîne</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="ambient ambient-one"></div>
+  <div class="ambient ambient-two"></div>
+
+  <header class="site-header">
+    <div class="brand">
+      <div class="brand-mark">IA</div>
+      <div>
+        <div class="eyebrow">Atelier collaboratif</div>
+        <div class="brand-title">Jeu IA en chaîne</div>
+      </div>
+    </div>
+    <div id="modeBadge" class="mode-badge">Chargement…</div>
+  </header>
+
+  <main>
+    <section class="hero panel">
+      <div class="hero-copy">
+        <span class="kicker">Un jeu. Une chaîne. Une amélioration à la fois.</span>
+        <h1>Fais évoluer le jeu avec l’IA sans casser ce qui existe déjà.</h1>
+        <p>
+          Chaque collègue repart de la dernière version disponible, ajoute une seule idée avec l’outil IA de son choix,
+          teste son résultat, puis dépose la nouvelle version pour le suivant.
+        </p>
+        <div class="rules-strip">
+          <span><b>1.</b> Télécharger</span>
+          <span><b>2.</b> Améliorer</span>
+          <span><b>3.</b> Tester</span>
+          <span><b>4.</b> Republier</span>
+        </div>
+      </div>
+
+      <aside class="latest-card">
+        <div class="latest-label">Dernière version</div>
+        <div id="latestVersion" class="latest-version">—</div>
+        <div id="latestMeta" class="latest-meta">Aucune version chargée</div>
+        <p id="latestNote" class="latest-note"></p>
+        <div class="button-stack">
+          <button id="testLatestBtn" class="btn btn-primary" disabled>▶ Tester la dernière version</button>
+          <button id="downloadLatestBtn" class="btn btn-secondary" disabled>↓ Télécharger pour l’améliorer</button>
+        </div>
+      </aside>
+    </section>
+
+    <section class="workspace-grid">
+      <div class="panel tester-panel">
+        <div class="section-heading">
+          <div>
+            <div class="eyebrow">Terrain d’essai</div>
+            <h2 id="testerTitle">Tester une version</h2>
+          </div>
+          <button id="closeTesterBtn" class="icon-btn" aria-label="Fermer l’aperçu">×</button>
+        </div>
+        <div id="testerEmpty" class="tester-empty">
+          Choisis « Tester » sur une version pour jouer directement ici.
+        </div>
+        <iframe id="gameFrame" title="Aperçu du jeu" sandbox="allow-scripts allow-modals" hidden></iframe>
+      </div>
+
+      <div class="panel upload-panel">
+        <div class="eyebrow">Passer le relais</div>
+        <h2>Déposer une nouvelle version</h2>
+        <p class="muted">Le fichier doit être un fichier HTML complet et fonctionnel.</p>
+
+        <form id="uploadForm">
+          <label>
+            Ton nom
+            <input id="contributor" name="contributor" type="text" maxlength="80" required placeholder="Ex. Christophe" />
+          </label>
+
+          <label>
+            Ce que tu as ajouté
+            <textarea id="changeNote" name="changeNote" rows="4" maxlength="500" required placeholder="Ex. J’ai ajouté un ennemi qui poursuit le joueur et fait perdre une vie au contact."></textarea>
+          </label>
+
+          <label class="file-picker">
+            <span>Fichier HTML de la nouvelle version</span>
+            <input id="gameFile" name="gameFile" type="file" accept=".html,text/html" required />
+            <span id="fileName" class="file-name">Choisir un fichier…</span>
+          </label>
+
+          <div class="check-row">
+            <input id="confirmedTest" type="checkbox" required />
+            <label for="confirmedTest">J’ai testé cette version et les fonctions précédentes marchent toujours.</label>
+          </div>
+
+          <button id="uploadBtn" class="btn btn-primary btn-wide" type="submit">Publier cette version</button>
+          <div id="formMessage" class="form-message" role="status"></div>
+        </form>
+      </div>
+    </section>
+
+    <section class="panel history-panel">
+      <div class="section-heading history-heading">
+        <div>
+          <div class="eyebrow">Mémoire du projet</div>
+          <h2>Historique des versions</h2>
+        </div>
+        <span id="versionCount" class="count-badge">0 version</span>
+      </div>
+      <div id="historyList" class="history-list"></div>
+    </section>
+
+    <section class="panel concept-panel">
+      <div class="eyebrow">La règle d’or</div>
+      <h2>Ajouter, pas remplacer.</h2>
+      <div class="concept-grid">
+        <div><strong>Une seule amélioration</strong><span>Une règle, un bonus, un ennemi, un effet, une idée absurde…</span></div>
+        <div><strong>IA au choix</strong><span>ChatGPT, Claude, Grok, Copilot… peu importe : le défi porte sur la manière de guider l’IA.</span></div>
+        <div><strong>Non-régression</strong><span>La nouvelle fonction ne doit pas supprimer ou casser les précédentes.</span></div>
+        <div><strong>Relais propre</strong><span>On ne publie que lorsqu’on a réellement testé la version obtenue.</span></div>
+      </div>
+      <details>
+        <summary>Afficher un prompt conseillé</summary>
+        <pre>Voici la dernière version du programme.
+Je veux ajouter UNE nouvelle fonctionnalité : [décris précisément ton idée].
+
+Contraintes :
+- toutes les fonctionnalités existantes doivent être conservées ;
+- ne supprime aucune règle déjà présente ;
+- modifie uniquement ce qui est nécessaire ;
+- vérifie les interactions avec les fonctions existantes ;
+- corrige tout conflit éventuel ;
+- renvoie-moi le fichier HTML complet, prêt à être enregistré et testé.</pre>
+      </details>
+    </section>
+  </main>
+
+  <footer>
+    Atelier IA collaboratif — le jeu devient progressivement votre Frankenstein numérique collectif.
+  </footer>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="config.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
