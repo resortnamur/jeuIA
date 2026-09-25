@@ -26,10 +26,7 @@
     fileName: $("fileName"),
     uploadBtn: $("uploadBtn"),
     formMessage: $("formMessage"),
-    adminLoginForm: $("adminLoginForm"),
     adminPin: $("adminPin"),
-    adminLoggedIn: $("adminLoggedIn"),
-    adminLogoutBtn: $("adminLogoutBtn"),
     adminMessage: $("adminMessage")
   };
 
@@ -114,9 +111,15 @@
     `).join("");
   }
 
+  // Clavier belge (AZERTY) : les chiffres tapés sans Majuscule donnent ces caractères.
+  const AZERTY_DIGITS = { "&": "1", "é": "2", "\"": "3", "'": "4", "(": "5", "§": "6", "è": "7", "!": "8", "ç": "9", "à": "0" };
+  function normalizePin(value) {
+    return [...value.trim()].map(c => AZERTY_DIGITS[c] ?? c).join("");
+  }
+
   function renderAdmin() {
-    els.adminLoginForm.hidden = isAdmin;
-    els.adminLoggedIn.hidden = !isAdmin;
+    if (isAdmin) els.adminPin.value = ADMIN_PIN;
+    setMessage(els.adminMessage, isAdmin ? "Boutons « Supprimer » visibles dans les versions (la v1 reste protégée)." : "", isAdmin ? "success" : "");
   }
 
   async function play(version) {
@@ -244,23 +247,12 @@
     }
   });
 
-  els.adminLoginForm.addEventListener("submit", event => {
-    event.preventDefault();
-    if (els.adminPin.value.trim() !== ADMIN_PIN) {
-      setMessage(els.adminMessage, "Code incorrect.", "error");
-      return;
-    }
-    sessionStorage.setItem("jeu-ia-admin", "1");
-    isAdmin = true;
-    els.adminPin.value = "";
-    setMessage(els.adminMessage, "");
-    renderAdmin();
-    renderHistory();
-  });
-
-  els.adminLogoutBtn.addEventListener("click", () => {
-    sessionStorage.removeItem("jeu-ia-admin");
-    isAdmin = false;
+  els.adminPin.addEventListener("input", () => {
+    const ok = normalizePin(els.adminPin.value) === ADMIN_PIN;
+    if (ok === isAdmin) return;
+    isAdmin = ok;
+    if (ok) sessionStorage.setItem("jeu-ia-admin", "1");
+    else sessionStorage.removeItem("jeu-ia-admin");
     renderAdmin();
     renderHistory();
   });

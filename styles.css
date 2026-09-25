@@ -212,8 +212,7 @@ pre {
   white-space: pre-wrap;
 }
 .admin summary { font-weight: 400; color: var(--muted); font-size: 13px; }
-.admin-form { display: flex; gap: 8px; align-items: center; margin: 0; }
-.admin-form input { flex: 1; }
+.admin .message { margin-top: 8px; }
 
 @media (max-width: 1000px) {
   .layout { grid-template-columns: 1fr; padding: 16px; }

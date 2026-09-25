@@ -85,15 +85,8 @@ Contraintes :
 
       <details id="adminDetails" class="card admin">
         <summary>Administration</summary>
-        <form id="adminLoginForm" class="admin-form">
-          <input id="adminPin" type="password" inputmode="numeric" autocomplete="new-password" placeholder="Code admin" />
-          <button class="btn" type="submit">Déverrouiller</button>
-        </form>
-        <div id="adminLoggedIn" class="admin-form" hidden>
-          <span class="meta">Mode administrateur : boutons « Supprimer » visibles (la v1 reste protégée).</span>
-          <button id="adminLogoutBtn" class="btn" type="button">Verrouiller</button>
-        </div>
-        <p id="adminMessage" class="message" role="status"></p>
+        <input id="adminPin" type="text" autocomplete="off" placeholder="Code admin" />
+        <p id="adminMessage" class="message meta" role="status"></p>
       </details>
     </aside>
   </main>
