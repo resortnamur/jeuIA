@@ -246,7 +246,7 @@
 
   els.adminLoginForm.addEventListener("submit", event => {
     event.preventDefault();
-    if (els.adminPin.value !== ADMIN_PIN) {
+    if (els.adminPin.value.trim() !== ADMIN_PIN) {
       setMessage(els.adminMessage, "Code incorrect.", "error");
       return;
     }
