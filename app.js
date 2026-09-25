@@ -27,10 +27,20 @@
     uploadBtn: document.getElementById("uploadBtn"),
     formMessage: document.getElementById("formMessage"),
     historyList: document.getElementById("historyList"),
-    versionCount: document.getElementById("versionCount")
+    versionCount: document.getElementById("versionCount"),
+    adminDetails: document.getElementById("adminDetails"),
+    adminLoggedOut: document.getElementById("adminLoggedOut"),
+    adminLoggedIn: document.getElementById("adminLoggedIn"),
+    adminLoginForm: document.getElementById("adminLoginForm"),
+    adminPin: document.getElementById("adminPin"),
+    adminLoginBtn: document.getElementById("adminLoginBtn"),
+    adminLogoutBtn: document.getElementById("adminLogoutBtn"),
+    adminMessage: document.getElementById("adminMessage")
   };
 
   let versions = [];
+  let isAdmin = sessionStorage.getItem("jeu-ia-admin") === "1";
+  const ADMIN_PIN = String(cfg.ADMIN_PIN || "2026");
 
   function escapeHtml(value) {
     return String(value ?? "")
@@ -124,6 +134,23 @@
     render();
   }
 
+  function setAdminMessage(text, kind = "") {
+    if (!els.adminMessage) return;
+    els.adminMessage.textContent = text;
+    els.adminMessage.className = `form-message ${kind}`.trim();
+  }
+
+  function refreshAdminState() {
+    isAdmin = sessionStorage.getItem("jeu-ia-admin") === "1";
+    renderAdminState();
+  }
+
+  function renderAdminState() {
+    if (!els.adminLoggedOut || !els.adminLoggedIn) return;
+    els.adminLoggedOut.hidden = Boolean(isAdmin);
+    els.adminLoggedIn.hidden = !isAdmin;
+  }
+
   function render() {
     const latest = versions[0];
     els.modeBadge.textContent = remoteEnabled ? "● Mode collaboratif" : "● Démo locale";
@@ -161,6 +188,8 @@
         <div class="version-actions">
           <button class="btn btn-ghost" data-action="test" data-id="${v.id}">Tester</button>
           <button class="btn btn-secondary" data-action="download" data-id="${v.id}">Télécharger</button>
+          ${isAdmin && v.id !== 1 ? `<button class="btn btn-danger" data-action="delete" data-id="${v.id}">Supprimer</button>` : ""}
+          ${isAdmin && v.id === 1 ? `<span class="version-protected">v1 protégée</span>` : ""}
         </div>
       </article>
     `).join("");
@@ -235,6 +264,20 @@
     }
   }
 
+  async function deleteVersion(version) {
+    if (!remoteEnabled || !isAdmin || !version || version.id === 1) return;
+    const ok = window.confirm(`Supprimer définitivement la v${version.id} de ${version.contributor} ?\n\nCette action est irréversible.`);
+    if (!ok) return;
+
+    const { error } = await client.from("game_versions").delete().eq("id", version.id);
+    if (error) {
+      window.alert(`Suppression impossible : ${error.message}`);
+      return;
+    }
+    closeTester();
+    await fetchVersions();
+  }
+
   els.testLatestBtn.addEventListener("click", () => testVersion(versions[0]));
   els.downloadLatestBtn.addEventListener("click", () => downloadVersion(versions[0]));
   els.closeTesterBtn.addEventListener("click", closeTester);
@@ -249,7 +292,32 @@
     const version = getVersion(button.dataset.id);
     if (button.dataset.action === "test") testVersion(version);
     if (button.dataset.action === "download") downloadVersion(version);
+    if (button.dataset.action === "delete") deleteVersion(version);
   });
+
+  if (els.adminLoginForm) {
+    els.adminLoginForm.addEventListener("submit", (event) => {
+      event.preventDefault();
+      setAdminMessage("");
+      if (String(els.adminPin.value) !== ADMIN_PIN) {
+        setAdminMessage("Code incorrect.", "error");
+        return;
+      }
+      sessionStorage.setItem("jeu-ia-admin", "1");
+      els.adminPin.value = "";
+      refreshAdminState();
+      render();
+      setAdminMessage("");
+    });
+  }
+
+  if (els.adminLogoutBtn) {
+    els.adminLogoutBtn.addEventListener("click", () => {
+      sessionStorage.removeItem("jeu-ia-admin");
+      refreshAdminState();
+      render();
+    });
+  }
 
   els.uploadForm.addEventListener("submit", async (event) => {
     event.preventDefault();
@@ -297,6 +365,7 @@
   async function init() {
     try {
       await ensureInitialVersion();
+      refreshAdminState();
       await fetchVersions();
     } catch (error) {
       console.error(error);

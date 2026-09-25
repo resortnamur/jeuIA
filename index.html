@@ -110,6 +110,37 @@
       <div id="historyList" class="history-list"></div>
     </section>
 
+
+    <section class="panel admin-panel">
+      <details id="adminDetails">
+        <summary>Administration</summary>
+        <div class="admin-content">
+          <div id="adminLoggedOut">
+            <p class="muted">Entre le petit code admin pour faire apparaître les boutons de suppression dans l’historique.</p>
+            <form id="adminLoginForm" class="admin-login-form">
+              <label>
+                Code admin
+                <input id="adminPin" type="password" inputmode="numeric" autocomplete="off" required placeholder="Code" />
+              </label>
+              <button id="adminLoginBtn" class="btn btn-secondary" type="submit">Déverrouiller</button>
+              <div id="adminMessage" class="form-message" role="status"></div>
+            </form>
+          </div>
+
+          <div id="adminLoggedIn" hidden>
+            <div class="admin-status-row">
+              <div>
+                <div class="eyebrow">Mode administrateur actif</div>
+                <strong>Suppression autorisée</strong>
+              </div>
+              <button id="adminLogoutBtn" class="btn btn-ghost" type="button">Verrouiller</button>
+            </div>
+            <p class="muted">Les boutons « Supprimer » apparaissent maintenant dans l’historique. La v1 reste protégée dans l’interface.</p>
+          </div>
+        </div>
+      </details>
+    </section>
+
     <section class="panel concept-panel">
       <div class="eyebrow">La règle d’or</div>
       <h2>Ajouter, pas remplacer.</h2>
