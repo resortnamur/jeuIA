@@ -46,7 +46,8 @@
         <p id="latestNote" class="latest-note"></p>
         <div class="button-stack">
           <button id="testLatestBtn" class="btn btn-primary" disabled>▶ Tester la dernière version</button>
-          <button id="downloadLatestBtn" class="btn btn-secondary" disabled>↓ Télécharger pour l’améliorer</button>
+          <a id="downloadLatestBtn" class="btn btn-secondary is-disabled" aria-disabled="true">↓ Télécharger pour l’améliorer</a>
+          <span id="downloadHint" class="download-hint" role="status"></span>
         </div>
       </aside>
     </section>
@@ -87,6 +88,9 @@
             <input id="gameFile" name="gameFile" type="file" accept=".html,text/html" required />
             <span id="fileName" class="file-name">Choisir un fichier…</span>
           </label>
+
+          <button id="testFileBtn" class="btn btn-ghost btn-wide" type="button" disabled>▶ Tester mon fichier avant publication</button>
+          <div id="testFileMessage" class="form-message" role="status"></div>
 
           <div class="check-row">
             <input id="confirmedTest" type="checkbox" required />

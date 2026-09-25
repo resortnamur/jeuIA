@@ -10,6 +10,7 @@ Site collaboratif pour un exercice de formation à la programmation assistée pa
 - enregistre son nom, sa description de modification et la date ;
 - conserve tout l'historique ;
 - permet de retester et retélécharger n'importe quelle ancienne version ;
+- permet de tester localement le fichier choisi avant de le publier ;
 - interdit, via les règles Supabase fournies, la modification ou la suppression des anciennes versions depuis l'interface publique.
 
 ## 1. Tester le site sans base de données
@@ -58,6 +59,8 @@ Ne mets jamais une clé `service_role` dans le site.
 - l'identifiant Supabase sert de numéro de version : v1, v2, v3… ;
 - la date est générée par la base Supabase, pas par le navigateur du participant ;
 - une version déposée n'écrase jamais la précédente ;
+- le téléchargement donne un fichier `.html` autonome, à ouvrir dans le navigateur ou à modifier avec une IA ;
+- les liens de téléchargement sont préparés au chargement de l'historique : un clic normal déclenche l'enregistrement ;
 - le site n'accorde aucun droit de modification ou suppression via l'API publique.
 
 ## Sécurité / atelier interne

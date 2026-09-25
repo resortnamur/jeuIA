@@ -131,6 +131,11 @@ h2 { margin: 7px 0 10px; font-size: clamp(23px, 3vw, 32px); letter-spacing: -.02
 .latest-note { color: var(--muted); line-height: 1.5; min-height: 42px; }
 .button-stack { display: grid; gap: 9px; margin-top: 10px; }
 .btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  text-decoration: none;
   min-height: 44px;
   border-radius: 12px;
   border: 1px solid transparent;
@@ -140,6 +145,8 @@ h2 { margin: 7px 0 10px; font-size: clamp(23px, 3vw, 32px); letter-spacing: -.02
 }
 .btn:not(:disabled):hover { transform: translateY(-1px); }
 .btn:disabled { opacity: .4; cursor: not-allowed; }
+.btn.is-disabled { opacity: .4; pointer-events: none; cursor: not-allowed; }
+.download-hint { color: var(--success); font-size: 13px; line-height: 1.4; }
 .btn-primary { background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: #05111c; }
 .btn-secondary { background: #142840; border-color: #345274; color: var(--text); }
 .btn-ghost { background: transparent; border-color: var(--line); color: #dce8f6; }

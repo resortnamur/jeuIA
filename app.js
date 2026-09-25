@@ -14,6 +14,7 @@
     latestNote: document.getElementById("latestNote"),
     testLatestBtn: document.getElementById("testLatestBtn"),
     downloadLatestBtn: document.getElementById("downloadLatestBtn"),
+    downloadHint: document.getElementById("downloadHint"),
     testerTitle: document.getElementById("testerTitle"),
     testerEmpty: document.getElementById("testerEmpty"),
     gameFrame: document.getElementById("gameFrame"),
@@ -23,6 +24,8 @@
     changeNote: document.getElementById("changeNote"),
     gameFile: document.getElementById("gameFile"),
     fileName: document.getElementById("fileName"),
+    testFileBtn: document.getElementById("testFileBtn"),
+    testFileMessage: document.getElementById("testFileMessage"),
     confirmedTest: document.getElementById("confirmedTest"),
     uploadBtn: document.getElementById("uploadBtn"),
     formMessage: document.getElementById("formMessage"),
@@ -39,6 +42,7 @@
   };
 
   let versions = [];
+  let downloadUrls = [];
   let isAdmin = sessionStorage.getItem("jeu-ia-admin") === "1";
   const ADMIN_PIN = String(cfg.ADMIN_PIN || "2026");
 
@@ -152,6 +156,10 @@
   }
 
   function render() {
+    // Keep object URLs alive while their links are displayed. Revoking them
+    // immediately after a click can cancel the download in some browsers.
+    downloadUrls.forEach(url => URL.revokeObjectURL(url));
+    downloadUrls = [];
     const latest = versions[0];
     els.modeBadge.textContent = remoteEnabled ? "● Mode collaboratif" : "● Démo locale";
     els.modeBadge.style.color = remoteEnabled ? "var(--success)" : "var(--warning)";
@@ -163,13 +171,18 @@
       els.latestMeta.textContent = `${latest.contributor} · ${formatDate(latest.created_at)}`;
       els.latestNote.textContent = latest.change_note;
       els.testLatestBtn.disabled = false;
-      els.downloadLatestBtn.disabled = false;
+      setDownloadLink(els.downloadLatestBtn, latest);
+      els.downloadLatestBtn.classList.remove("is-disabled");
+      els.downloadLatestBtn.removeAttribute("aria-disabled");
     } else {
       els.latestVersion.textContent = "—";
       els.latestMeta.textContent = "Aucune version disponible";
       els.latestNote.textContent = "";
       els.testLatestBtn.disabled = true;
-      els.downloadLatestBtn.disabled = true;
+      els.downloadLatestBtn.removeAttribute("href");
+      els.downloadLatestBtn.removeAttribute("download");
+      els.downloadLatestBtn.classList.add("is-disabled");
+      els.downloadLatestBtn.setAttribute("aria-disabled", "true");
     }
 
     if (!versions.length) {
@@ -187,7 +200,7 @@
         </div>
         <div class="version-actions">
           <button class="btn btn-ghost" data-action="test" data-id="${v.id}">Tester</button>
-          <button class="btn btn-secondary" data-action="download" data-id="${v.id}">Télécharger</button>
+          <a class="btn btn-secondary" data-action="download" data-id="${v.id}" href="${downloadUrl(v)}" download="${downloadName(v)}">Télécharger</a>
           ${isAdmin && v.id !== 1 ? `<button class="btn btn-danger" data-action="delete" data-id="${v.id}">Supprimer</button>` : ""}
           ${isAdmin && v.id === 1 ? `<span class="version-protected">v1 protégée</span>` : ""}
         </div>
@@ -224,17 +237,20 @@
       .toLowerCase() || "contributeur";
   }
 
-  function downloadVersion(version) {
-    if (!version) return;
+  function downloadName(version) {
+    return `jeu-ia-v${version.id}-${safeFileName(version.contributor)}.html`;
+  }
+
+  function downloadUrl(version) {
     const blob = new Blob([version.html_content], { type: "text/html;charset=utf-8" });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `jeu-ia-v${version.id}-${safeFileName(version.contributor)}.html`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 500);
+    downloadUrls.push(url);
+    return url;
+  }
+
+  function setDownloadLink(link, version) {
+    link.href = downloadUrl(version);
+    link.download = downloadName(version);
   }
 
   function looksLikeHtml(content) {
@@ -279,11 +295,31 @@
   }
 
   els.testLatestBtn.addEventListener("click", () => testVersion(versions[0]));
-  els.downloadLatestBtn.addEventListener("click", () => downloadVersion(versions[0]));
+  els.downloadLatestBtn.addEventListener("click", () => {
+    if (versions.length) els.downloadHint.textContent = "Téléchargement demandé. Si rien ne se passe, fais un clic droit sur ce lien, puis « Enregistrer le lien sous… ».";
+  });
   els.closeTesterBtn.addEventListener("click", closeTester);
 
   els.gameFile.addEventListener("change", () => {
     els.fileName.textContent = els.gameFile.files?.[0]?.name || "Choisir un fichier…";
+    els.testFileBtn.disabled = !els.gameFile.files?.length;
+    els.testFileMessage.textContent = "";
+  });
+
+  els.testFileBtn.addEventListener("click", async () => {
+    const file = els.gameFile.files?.[0];
+    if (!file) return;
+    if (!file.name.toLowerCase().endsWith(".html") || file.size > MAX_FILE_SIZE) {
+      els.testFileMessage.textContent = "Choisis un fichier .html de 1,5 Mo maximum.";
+      return;
+    }
+    const html = await file.text();
+    if (!looksLikeHtml(html)) {
+      els.testFileMessage.textContent = "Ce fichier ne ressemble pas à un jeu HTML complet.";
+      return;
+    }
+    els.testFileMessage.textContent = "Aperçu de ton fichier affiché ci-dessus. Vérifie le jeu avant de publier.";
+    testVersion({ id: "à publier", contributor: file.name, html_content: html });
   });
 
   els.historyList.addEventListener("click", (event) => {
@@ -291,7 +327,6 @@
     if (!button) return;
     const version = getVersion(button.dataset.id);
     if (button.dataset.action === "test") testVersion(version);
-    if (button.dataset.action === "download") downloadVersion(version);
     if (button.dataset.action === "delete") deleteVersion(version);
   });
 
@@ -351,6 +386,7 @@
       await publishVersion({ contributor, changeNote, htmlContent });
       els.uploadForm.reset();
       els.fileName.textContent = "Choisir un fichier…";
+      els.testFileBtn.disabled = true;
       setMessage("Nouvelle version publiée. Le relais est prêt !", "success");
       await fetchVersions();
     } catch (error) {
