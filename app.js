@@ -2,255 +2,162 @@
   "use strict";
 
   const MAX_FILE_SIZE = 1_500_000;
-  const LOCAL_KEY = "jeu-ia-en-chaine-versions-v1";
+  const RECENT_COUNT = 5; // versions récentes affichées, en plus de la v1
   const cfg = window.APP_CONFIG || {};
-  const remoteEnabled = Boolean(cfg.SUPABASE_URL && cfg.SUPABASE_ANON_KEY && window.supabase);
-  const client = remoteEnabled ? window.supabase.createClient(cfg.SUPABASE_URL, cfg.SUPABASE_ANON_KEY) : null;
+  const ADMIN_PIN = String(cfg.ADMIN_PIN || "2026");
+  const client = window.supabase.createClient(cfg.SUPABASE_URL, cfg.SUPABASE_ANON_KEY);
+  const table = () => client.from("game_versions");
 
+  const $ = id => document.getElementById(id);
   const els = {
-    modeBadge: document.getElementById("modeBadge"),
-    latestVersion: document.getElementById("latestVersion"),
-    latestMeta: document.getElementById("latestMeta"),
-    latestNote: document.getElementById("latestNote"),
-    testLatestBtn: document.getElementById("testLatestBtn"),
-    downloadLatestBtn: document.getElementById("downloadLatestBtn"),
-    downloadHint: document.getElementById("downloadHint"),
-    testerTitle: document.getElementById("testerTitle"),
-    testerEmpty: document.getElementById("testerEmpty"),
-    gameFrame: document.getElementById("gameFrame"),
-    closeTesterBtn: document.getElementById("closeTesterBtn"),
-    uploadForm: document.getElementById("uploadForm"),
-    contributor: document.getElementById("contributor"),
-    changeNote: document.getElementById("changeNote"),
-    gameFile: document.getElementById("gameFile"),
-    fileName: document.getElementById("fileName"),
-    testFileBtn: document.getElementById("testFileBtn"),
-    testFileMessage: document.getElementById("testFileMessage"),
-    confirmedTest: document.getElementById("confirmedTest"),
-    uploadBtn: document.getElementById("uploadBtn"),
-    formMessage: document.getElementById("formMessage"),
-    historyList: document.getElementById("historyList"),
-    versionCount: document.getElementById("versionCount"),
-    adminDetails: document.getElementById("adminDetails"),
-    adminLoggedOut: document.getElementById("adminLoggedOut"),
-    adminLoggedIn: document.getElementById("adminLoggedIn"),
-    adminLoginForm: document.getElementById("adminLoginForm"),
-    adminPin: document.getElementById("adminPin"),
-    adminLoginBtn: document.getElementById("adminLoginBtn"),
-    adminLogoutBtn: document.getElementById("adminLogoutBtn"),
-    adminMessage: document.getElementById("adminMessage")
+    status: $("status"),
+    stageVersion: $("stageVersion"),
+    stageAuthor: $("stageAuthor"),
+    stageMeta: $("stageMeta"),
+    stageNote: $("stageNote"),
+    stageDownload: $("stageDownload"),
+    gameFrame: $("gameFrame"),
+    versionCount: $("versionCount"),
+    historyList: $("historyList"),
+    uploadForm: $("uploadForm"),
+    contributor: $("contributor"),
+    changeNote: $("changeNote"),
+    gameFile: $("gameFile"),
+    fileName: $("fileName"),
+    uploadBtn: $("uploadBtn"),
+    formMessage: $("formMessage"),
+    adminLoginForm: $("adminLoginForm"),
+    adminPin: $("adminPin"),
+    adminLoggedIn: $("adminLoggedIn"),
+    adminLogoutBtn: $("adminLogoutBtn"),
+    adminMessage: $("adminMessage")
   };
 
-  let versions = [];
-  let downloadUrls = [];
+  let versions = [];          // métadonnées affichées (sans le HTML)
+  let total = 0;
+  let current = null;         // version affichée dans le jeu
+  const htmlCache = new Map(); // id -> contenu HTML, chargé à la demande
   let isAdmin = sessionStorage.getItem("jeu-ia-admin") === "1";
-  const ADMIN_PIN = String(cfg.ADMIN_PIN || "2026");
+
+  const META = "id, contributor, change_note, created_at";
 
   function escapeHtml(value) {
     return String(value ?? "")
-      .replaceAll("&", "&amp;")
-      .replaceAll("<", "&lt;")
-      .replaceAll(">", "&gt;")
-      .replaceAll('"', "&quot;")
-      .replaceAll("'", "&#039;");
-  }
-
-  function setMessage(text, kind = "") {
-    els.formMessage.textContent = text;
-    els.formMessage.className = `form-message ${kind}`.trim();
+      .replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;").replaceAll("'", "&#039;");
   }
 
   function formatDate(iso) {
-    return new Intl.DateTimeFormat("fr-BE", {
-      dateStyle: "medium",
-      timeStyle: "short"
-    }).format(new Date(iso));
+    return new Intl.DateTimeFormat("fr-BE", { dateStyle: "medium", timeStyle: "short" }).format(new Date(iso));
   }
 
-  function normalizedVersion(row) {
-    return {
-      id: Number(row.id),
-      contributor: row.contributor || "Anonyme",
-      change_note: row.change_note || "",
-      html_content: row.html_content || "",
-      created_at: row.created_at || new Date().toISOString()
-    };
-  }
-
-  async function loadStarterHtml() {
-    const response = await fetch("starter-game.html", { cache: "no-store" });
-    if (!response.ok) throw new Error("Impossible de charger le jeu de départ.");
-    return response.text();
-  }
-
-  function getLocalVersions() {
-    try {
-      const parsed = JSON.parse(localStorage.getItem(LOCAL_KEY) || "[]");
-      return Array.isArray(parsed) ? parsed.map(normalizedVersion) : [];
-    } catch {
-      return [];
-    }
-  }
-
-  function saveLocalVersions(list) {
-    localStorage.setItem(LOCAL_KEY, JSON.stringify(list));
+  function setMessage(el, text, kind = "") {
+    el.textContent = text;
+    el.className = `message ${kind}`.trim();
   }
 
   async function ensureInitialVersion() {
-    if (remoteEnabled) {
-      const { count, error } = await client.from("game_versions").select("id", { count: "exact", head: true });
-      if (error) throw error;
-      if ((count || 0) === 0) {
-        const starter = await loadStarterHtml();
-        const { error: insertError } = await client.from("game_versions").insert({
-          contributor: "Version de départ",
-          change_note: "Jeu initial : déplacer le carré et attraper les pièces jaunes.",
-          html_content: starter
-        });
-        if (insertError) throw insertError;
-      }
-    } else {
-      const local = getLocalVersions();
-      if (local.length === 0) {
-        const starter = await loadStarterHtml();
-        saveLocalVersions([{
-          id: 1,
-          contributor: "Version de départ",
-          change_note: "Jeu initial : déplacer le carré et attraper les pièces jaunes.",
-          html_content: starter,
-          created_at: new Date().toISOString()
-        }]);
-      }
-    }
+    const { count, error } = await table().select("id", { count: "exact", head: true });
+    if (error) throw error;
+    if ((count || 0) > 0) return;
+    const response = await fetch("starter-game.html", { cache: "no-store" });
+    if (!response.ok) throw new Error("Impossible de charger le jeu de départ.");
+    const { error: insertError } = await table().insert({
+      contributor: "Version de départ",
+      change_note: "Jeu initial : déplacer le carré et attraper les pièces jaunes.",
+      html_content: await response.text()
+    });
+    if (insertError) throw insertError;
   }
 
+  // Charge uniquement les métadonnées : les N dernières versions + la toute première.
   async function fetchVersions() {
-    if (remoteEnabled) {
-      const { data, error } = await client
-        .from("game_versions")
-        .select("id, contributor, change_note, html_content, created_at")
-        .order("id", { ascending: false });
-      if (error) throw error;
-      versions = (data || []).map(normalizedVersion);
-    } else {
-      versions = getLocalVersions().sort((a, b) => b.id - a.id);
-    }
-    render();
+    const [recent, first] = await Promise.all([
+      table().select(META, { count: "exact" }).order("id", { ascending: false }).limit(RECENT_COUNT),
+      table().select(META).order("id", { ascending: true }).limit(1)
+    ]);
+    if (recent.error) throw recent.error;
+    if (first.error) throw first.error;
+    total = recent.count ?? recent.data.length;
+    versions = [...recent.data];
+    const original = first.data[0];
+    if (original && !versions.some(v => v.id === original.id)) versions.push(original);
   }
 
-  function setAdminMessage(text, kind = "") {
-    if (!els.adminMessage) return;
-    els.adminMessage.textContent = text;
-    els.adminMessage.className = `form-message ${kind}`.trim();
+  async function getHtml(id) {
+    if (htmlCache.has(id)) return htmlCache.get(id);
+    const { data, error } = await table().select("html_content").eq("id", id).single();
+    if (error) throw error;
+    htmlCache.set(id, data.html_content);
+    return data.html_content;
   }
 
-  function refreshAdminState() {
-    isAdmin = sessionStorage.getItem("jeu-ia-admin") === "1";
-    renderAdminState();
-  }
+  function renderHistory() {
+    els.versionCount.textContent = total > versions.length
+      ? `${total} versions au total — les ${RECENT_COUNT} dernières et l’originale sont affichées.`
+      : `${total} version${total > 1 ? "s" : ""}.`;
 
-  function renderAdminState() {
-    if (!els.adminLoggedOut || !els.adminLoggedIn) return;
-    els.adminLoggedOut.hidden = Boolean(isAdmin);
-    els.adminLoggedIn.hidden = !isAdmin;
-  }
+    const latestId = versions[0]?.id;
+    const originalId = versions[versions.length - 1]?.id;
+    const hidden = total - versions.length;
 
-  function render() {
-    // Keep object URLs alive while their links are displayed. Revoking them
-    // immediately after a click can cancel the download in some browsers.
-    downloadUrls.forEach(url => URL.revokeObjectURL(url));
-    downloadUrls = [];
-    const latest = versions[0];
-    els.modeBadge.textContent = remoteEnabled ? "● Mode collaboratif" : "● Démo locale";
-    els.modeBadge.style.color = remoteEnabled ? "var(--success)" : "var(--warning)";
-
-    els.versionCount.textContent = `${versions.length} version${versions.length > 1 ? "s" : ""}`;
-
-    if (latest) {
-      els.latestVersion.textContent = `v${latest.id}`;
-      els.latestMeta.textContent = `${latest.contributor} · ${formatDate(latest.created_at)}`;
-      els.latestNote.textContent = latest.change_note;
-      els.testLatestBtn.disabled = false;
-      setDownloadLink(els.downloadLatestBtn, latest);
-      els.downloadLatestBtn.classList.remove("is-disabled");
-      els.downloadLatestBtn.removeAttribute("aria-disabled");
-    } else {
-      els.latestVersion.textContent = "—";
-      els.latestMeta.textContent = "Aucune version disponible";
-      els.latestNote.textContent = "";
-      els.testLatestBtn.disabled = true;
-      els.downloadLatestBtn.removeAttribute("href");
-      els.downloadLatestBtn.removeAttribute("download");
-      els.downloadLatestBtn.classList.add("is-disabled");
-      els.downloadLatestBtn.setAttribute("aria-disabled", "true");
-    }
-
-    if (!versions.length) {
-      els.historyList.innerHTML = '<div class="empty-history">Aucune version pour le moment.</div>';
-      return;
-    }
-
-    els.historyList.innerHTML = versions.map((v, index) => `
-      <article class="version-row">
-        <div class="version-pill">v${v.id}${index === 0 ? " ★" : ""}</div>
-        <div class="version-info">
-          <strong>${escapeHtml(v.contributor)}</strong>
-          <p>${escapeHtml(v.change_note)}</p>
-          <div class="version-date">${formatDate(v.created_at)}</div>
-        </div>
-        <div class="version-actions">
-          <button class="btn btn-ghost" data-action="test" data-id="${v.id}">Tester</button>
-          <a class="btn btn-secondary" data-action="download" data-id="${v.id}" href="${downloadUrl(v)}" download="${downloadName(v)}">Télécharger</a>
-          ${isAdmin && v.id !== 1 ? `<button class="btn btn-danger" data-action="delete" data-id="${v.id}">Supprimer</button>` : ""}
-          ${isAdmin && v.id === 1 ? `<span class="version-protected">v1 protégée</span>` : ""}
-        </div>
-      </article>
+    els.historyList.innerHTML = versions.map(v => `
+      ${v.id === originalId && hidden > 0 ? '<div class="gap">···</div>' : ""}
+      <div class="version ${current?.id === v.id ? "active" : ""}" data-id="${v.id}" role="button" tabindex="0">
+        <span class="pill">v${v.id}</span>
+        <span class="version-text">
+          <strong>${escapeHtml(v.contributor)}${v.id === latestId ? " · dernière" : ""}</strong>
+          <span title="${escapeHtml(v.change_note)}">${escapeHtml(v.change_note)}</span>
+        </span>
+        ${isAdmin && v.id !== 1 ? `<button class="btn btn-danger" data-delete="${v.id}" type="button">Supprimer</button>` : "<span></span>"}
+      </div>
     `).join("");
   }
 
-  function getVersion(id) {
-    return versions.find(v => v.id === Number(id));
+  function renderAdmin() {
+    els.adminLoginForm.hidden = isAdmin;
+    els.adminLoggedIn.hidden = !isAdmin;
   }
 
-  function testVersion(version) {
+  async function play(version) {
     if (!version) return;
-    els.testerTitle.textContent = `Tester v${version.id} — ${version.contributor}`;
-    els.testerEmpty.hidden = true;
-    els.gameFrame.hidden = false;
-    els.gameFrame.srcdoc = version.html_content;
-    document.querySelector(".tester-panel").scrollIntoView({ behavior: "smooth", block: "start" });
-  }
-
-  function closeTester() {
-    els.gameFrame.srcdoc = "";
-    els.gameFrame.hidden = true;
-    els.testerEmpty.hidden = false;
-    els.testerTitle.textContent = "Tester une version";
+    current = version;
+    els.stageVersion.textContent = `v${version.id}`;
+    els.stageAuthor.textContent = version.contributor;
+    els.stageMeta.textContent = formatDate(version.created_at);
+    els.stageNote.textContent = version.change_note;
+    els.stageDownload.disabled = true;
+    renderHistory();
+    try {
+      const html = await getHtml(version.id);
+      if (current !== version) return; // une autre version a été choisie entre-temps
+      els.gameFrame.srcdoc = html;
+      els.stageDownload.disabled = false;
+    } catch (error) {
+      console.error(error);
+      els.stageNote.textContent = `Impossible de charger cette version : ${error.message}`;
+    }
   }
 
   function safeFileName(name) {
     return String(name || "contributeur")
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "")
-      .replace(/[^a-zA-Z0-9_-]+/g, "-")
-      .replace(/^-+|-+$/g, "")
+      .normalize("NFD").replace(/[̀-ͯ]/g, "")
+      .replace(/[^a-zA-Z0-9_-]+/g, "-").replace(/^-+|-+$/g, "")
       .toLowerCase() || "contributeur";
   }
 
-  function downloadName(version) {
-    return `jeu-ia-v${version.id}-${safeFileName(version.contributor)}.html`;
-  }
-
-  function downloadUrl(version) {
-    const blob = new Blob([version.html_content], { type: "text/html;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    downloadUrls.push(url);
-    return url;
-  }
-
-  function setDownloadLink(link, version) {
-    link.href = downloadUrl(version);
-    link.download = downloadName(version);
+  function download(version) {
+    const html = htmlCache.get(version.id);
+    if (!html) return;
+    const url = URL.createObjectURL(new Blob([html], { type: "text/html;charset=utf-8" }));
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `jeu-ia-v${version.id}-${safeFileName(version.contributor)}.html`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    // Révoquer trop tôt peut annuler le téléchargement dans certains navigateurs.
+    setTimeout(() => URL.revokeObjectURL(url), 60_000);
   }
 
   function looksLikeHtml(content) {
@@ -258,156 +165,120 @@
     return lower.includes("<html") && lower.includes("<script") && lower.includes("</html>");
   }
 
-  async function publishVersion({ contributor, changeNote, htmlContent }) {
-    if (remoteEnabled) {
-      const { error } = await client.from("game_versions").insert({
-        contributor,
-        change_note: changeNote,
-        html_content: htmlContent
-      });
-      if (error) throw error;
-    } else {
-      const local = getLocalVersions();
-      const nextId = local.reduce((max, v) => Math.max(max, Number(v.id) || 0), 0) + 1;
-      local.push({
-        id: nextId,
-        contributor,
-        change_note: changeNote,
-        html_content: htmlContent,
-        created_at: new Date().toISOString()
-      });
-      saveLocalVersions(local);
-    }
-  }
-
-  async function deleteVersion(version) {
-    if (!remoteEnabled || !isAdmin || !version || version.id === 1) return;
-    const ok = window.confirm(`Supprimer définitivement la v${version.id} de ${version.contributor} ?\n\nCette action est irréversible.`);
-    if (!ok) return;
-
-    const { error } = await client.from("game_versions").delete().eq("id", version.id);
-    if (error) {
-      window.alert(`Suppression impossible : ${error.message}`);
-      return;
-    }
-    closeTester();
+  async function deleteVersion(id) {
+    const version = versions.find(v => v.id === id);
+    if (!isAdmin || !version || version.id === 1) return;
+    if (!confirm(`Supprimer définitivement la v${version.id} de ${version.contributor} ?\n\nCette action est irréversible.`)) return;
+    const { data, error } = await table().delete().eq("id", id).select("id");
+    if (error) { alert(`Suppression impossible : ${error.message}`); return; }
+    if (!data || data.length === 0) { alert("La base de données a refusé la suppression."); return; }
+    htmlCache.delete(id);
     await fetchVersions();
+    if (current?.id === id) await play(versions[0]);
+    else renderHistory();
   }
 
-  els.testLatestBtn.addEventListener("click", () => testVersion(versions[0]));
-  els.downloadLatestBtn.addEventListener("click", () => {
-    if (versions.length) els.downloadHint.textContent = "Téléchargement demandé. Si rien ne se passe, fais un clic droit sur ce lien, puis « Enregistrer le lien sous… ».";
+  // --- Événements ---
+
+  els.stageDownload.addEventListener("click", () => current && download(current));
+
+  els.historyList.addEventListener("click", event => {
+    const del = event.target.closest("[data-delete]");
+    if (del) { deleteVersion(Number(del.dataset.delete)); return; }
+    const row = event.target.closest(".version");
+    if (row) play(versions.find(v => v.id === Number(row.dataset.id)));
   });
-  els.closeTesterBtn.addEventListener("click", closeTester);
+  els.historyList.addEventListener("keydown", event => {
+    if (event.key !== "Enter" && event.key !== " ") return;
+    const row = event.target.closest(".version");
+    if (!row || event.target !== row) return;
+    event.preventDefault();
+    play(versions.find(v => v.id === Number(row.dataset.id)));
+  });
 
   els.gameFile.addEventListener("change", () => {
-    els.fileName.textContent = els.gameFile.files?.[0]?.name || "Choisir un fichier…";
-    els.testFileBtn.disabled = !els.gameFile.files?.length;
-    els.testFileMessage.textContent = "";
+    els.fileName.textContent = els.gameFile.files?.[0]?.name || "Choisir le fichier HTML…";
   });
 
-  els.testFileBtn.addEventListener("click", async () => {
-    const file = els.gameFile.files?.[0];
-    if (!file) return;
-    if (!file.name.toLowerCase().endsWith(".html") || file.size > MAX_FILE_SIZE) {
-      els.testFileMessage.textContent = "Choisis un fichier .html de 1,5 Mo maximum.";
-      return;
-    }
-    const html = await file.text();
-    if (!looksLikeHtml(html)) {
-      els.testFileMessage.textContent = "Ce fichier ne ressemble pas à un jeu HTML complet.";
-      return;
-    }
-    els.testFileMessage.textContent = "Aperçu de ton fichier affiché ci-dessus. Vérifie le jeu avant de publier.";
-    testVersion({ id: "à publier", contributor: file.name, html_content: html });
-  });
-
-  els.historyList.addEventListener("click", (event) => {
-    const button = event.target.closest("button[data-action]");
-    if (!button) return;
-    const version = getVersion(button.dataset.id);
-    if (button.dataset.action === "test") testVersion(version);
-    if (button.dataset.action === "delete") deleteVersion(version);
-  });
-
-  if (els.adminLoginForm) {
-    els.adminLoginForm.addEventListener("submit", (event) => {
-      event.preventDefault();
-      setAdminMessage("");
-      if (String(els.adminPin.value) !== ADMIN_PIN) {
-        setAdminMessage("Code incorrect.", "error");
-        return;
-      }
-      sessionStorage.setItem("jeu-ia-admin", "1");
-      els.adminPin.value = "";
-      refreshAdminState();
-      render();
-      setAdminMessage("");
-    });
-  }
-
-  if (els.adminLogoutBtn) {
-    els.adminLogoutBtn.addEventListener("click", () => {
-      sessionStorage.removeItem("jeu-ia-admin");
-      refreshAdminState();
-      render();
-    });
-  }
-
-  els.uploadForm.addEventListener("submit", async (event) => {
+  els.uploadForm.addEventListener("submit", async event => {
     event.preventDefault();
-    setMessage("");
-
+    setMessage(els.formMessage, "");
     const file = els.gameFile.files?.[0];
     const contributor = els.contributor.value.trim();
     const changeNote = els.changeNote.value.trim();
 
-    if (!file || !contributor || !changeNote || !els.confirmedTest.checked) {
-      setMessage("Complète tous les champs et confirme que tu as testé le jeu.", "error");
+    if (!contributor || !changeNote || !file) {
+      setMessage(els.formMessage, "Indique ton nom, ce que tu as ajouté, et choisis le fichier.", "error");
       return;
     }
     if (!file.name.toLowerCase().endsWith(".html")) {
-      setMessage("Le fichier doit être au format .html.", "error");
+      setMessage(els.formMessage, "Le fichier doit être au format .html.", "error");
       return;
     }
     if (file.size > MAX_FILE_SIZE) {
-      setMessage("Le fichier est trop volumineux. Limite : 1,5 Mo.", "error");
+      setMessage(els.formMessage, "Le fichier est trop volumineux. Limite : 1,5 Mo.", "error");
       return;
     }
 
     els.uploadBtn.disabled = true;
     els.uploadBtn.textContent = "Publication…";
-
     try {
       const htmlContent = await file.text();
-      if (!looksLikeHtml(htmlContent)) {
-        throw new Error("Ce fichier ne ressemble pas à un fichier HTML complet contenant le jeu.");
-      }
-      await publishVersion({ contributor, changeNote, htmlContent });
+      if (!looksLikeHtml(htmlContent)) throw new Error("Ce fichier ne ressemble pas à un jeu HTML complet.");
+      const { data, error } = await table()
+        .insert({ contributor, change_note: changeNote, html_content: htmlContent })
+        .select(META).single();
+      if (error) throw error;
+      htmlCache.set(data.id, htmlContent);
       els.uploadForm.reset();
-      els.fileName.textContent = "Choisir un fichier…";
-      els.testFileBtn.disabled = true;
-      setMessage("Nouvelle version publiée. Le relais est prêt !", "success");
+      els.fileName.textContent = "Choisir le fichier HTML…";
+      setMessage(els.formMessage, `v${data.id} publiée. Le relais est passé !`, "success");
       await fetchVersions();
+      await play(versions.find(v => v.id === data.id) || data);
     } catch (error) {
       console.error(error);
-      setMessage(error.message || "La publication a échoué.", "error");
+      setMessage(els.formMessage, error.message || "La publication a échoué.", "error");
     } finally {
       els.uploadBtn.disabled = false;
-      els.uploadBtn.textContent = "Publier cette version";
+      els.uploadBtn.textContent = "Publier";
     }
   });
 
+  els.adminLoginForm.addEventListener("submit", event => {
+    event.preventDefault();
+    if (els.adminPin.value !== ADMIN_PIN) {
+      setMessage(els.adminMessage, "Code incorrect.", "error");
+      return;
+    }
+    sessionStorage.setItem("jeu-ia-admin", "1");
+    isAdmin = true;
+    els.adminPin.value = "";
+    setMessage(els.adminMessage, "");
+    renderAdmin();
+    renderHistory();
+  });
+
+  els.adminLogoutBtn.addEventListener("click", () => {
+    sessionStorage.removeItem("jeu-ia-admin");
+    isAdmin = false;
+    renderAdmin();
+    renderHistory();
+  });
+
   async function init() {
+    renderAdmin();
     try {
       await ensureInitialVersion();
-      refreshAdminState();
       await fetchVersions();
+      els.status.textContent = "● En ligne";
+      els.status.className = "status ok";
+      await play(versions[0]);
     } catch (error) {
       console.error(error);
-      els.modeBadge.textContent = "Erreur de connexion";
-      els.modeBadge.style.color = "var(--danger)";
-      els.historyList.innerHTML = `<div class="empty-history">Impossible de charger les versions : ${escapeHtml(error.message)}</div>`;
+      els.status.textContent = "Erreur de connexion";
+      els.status.className = "status error";
+      els.stageAuthor.textContent = "Impossible de charger le jeu";
+      els.stageNote.textContent = error.message;
     }
   }
 

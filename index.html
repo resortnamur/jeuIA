@@ -3,159 +3,74 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="color-scheme" content="dark" />
   <title>Jeu IA en chaîne</title>
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-  <div class="ambient ambient-one"></div>
-  <div class="ambient ambient-two"></div>
-
-  <header class="site-header">
+  <header class="topbar">
     <div class="brand">
-      <div class="brand-mark">IA</div>
+      <span class="brand-mark">IA</span>
       <div>
-        <div class="eyebrow">Atelier collaboratif</div>
-        <div class="brand-title">Jeu IA en chaîne</div>
+        <h1>Jeu IA en chaîne</h1>
+        <p>Chacun ajoute une idée au jeu avec l’IA de son choix, puis passe le relais.</p>
       </div>
     </div>
-    <div id="modeBadge" class="mode-badge">Chargement…</div>
+    <span id="status" class="status">Chargement…</span>
   </header>
 
-  <main>
-    <section class="hero panel">
-      <div class="hero-copy">
-        <span class="kicker">Un jeu. Une chaîne. Une amélioration à la fois.</span>
-        <h1>Fais évoluer le jeu avec l’IA sans casser ce qui existe déjà.</h1>
-        <p>
-          Chaque collègue repart de la dernière version disponible, ajoute une seule idée avec l’outil IA de son choix,
-          teste son résultat, puis dépose la nouvelle version pour le suivant.
-        </p>
-        <div class="rules-strip">
-          <span><b>1.</b> Télécharger</span>
-          <span><b>2.</b> Améliorer</span>
-          <span><b>3.</b> Tester</span>
-          <span><b>4.</b> Republier</span>
-        </div>
-      </div>
-
-      <aside class="latest-card">
-        <div class="latest-label">Dernière version</div>
-        <div id="latestVersion" class="latest-version">—</div>
-        <div id="latestMeta" class="latest-meta">Aucune version chargée</div>
-        <p id="latestNote" class="latest-note"></p>
-        <div class="button-stack">
-          <button id="testLatestBtn" class="btn btn-primary" disabled>▶ Tester la dernière version</button>
-          <a id="downloadLatestBtn" class="btn btn-secondary is-disabled" aria-disabled="true">↓ Télécharger pour l’améliorer</a>
-          <span id="downloadHint" class="download-hint" role="status"></span>
-        </div>
-      </aside>
-    </section>
-
-    <section class="workspace-grid">
-      <div class="panel tester-panel">
-        <div class="section-heading">
+  <main class="layout">
+    <section class="stage" aria-label="Jeu">
+      <div class="stage-head">
+        <div class="stage-title">
+          <span id="stageVersion" class="pill">—</span>
           <div>
-            <div class="eyebrow">Terrain d’essai</div>
-            <h2 id="testerTitle">Tester une version</h2>
+            <strong id="stageAuthor">Chargement du jeu…</strong>
+            <span id="stageMeta" class="meta"></span>
           </div>
-          <button id="closeTesterBtn" class="icon-btn" aria-label="Fermer l’aperçu">×</button>
         </div>
-        <div id="testerEmpty" class="tester-empty">
-          Choisis « Tester » sur une version pour jouer directement ici.
+        <div class="stage-actions">
+          <span class="hint">Clique dans le jeu pour jouer au clavier.</span>
+          <button id="stageDownload" class="btn btn-primary" type="button" disabled>Télécharger cette version</button>
         </div>
-        <iframe id="gameFrame" title="Aperçu du jeu" sandbox="allow-scripts allow-modals" hidden></iframe>
       </div>
+      <p id="stageNote" class="stage-note"></p>
+      <div class="frame-wrap">
+        <iframe id="gameFrame" title="Jeu" sandbox="allow-scripts allow-modals"></iframe>
+      </div>
+    </section>
 
-      <div class="panel upload-panel">
-        <div class="eyebrow">Passer le relais</div>
-        <h2>Déposer une nouvelle version</h2>
-        <p class="muted">Le fichier doit être un fichier HTML complet et fonctionnel.</p>
+    <aside class="side">
+      <section class="card">
+        <h2>Versions</h2>
+        <p id="versionCount" class="meta"></p>
+        <div id="historyList" class="history"></div>
+      </section>
 
-        <form id="uploadForm">
-          <label>
-            Ton nom
-            <input id="contributor" name="contributor" type="text" maxlength="80" required placeholder="Ex. Christophe" />
+      <section class="card">
+        <h2>Déposer une version</h2>
+        <form id="uploadForm" novalidate>
+          <label>Ton nom
+            <input id="contributor" type="text" maxlength="80" placeholder="Ex. Christophe" />
           </label>
-
-          <label>
-            Ce que tu as ajouté
-            <textarea id="changeNote" name="changeNote" rows="4" maxlength="500" required placeholder="Ex. J’ai ajouté un ennemi qui poursuit le joueur et fait perdre une vie au contact."></textarea>
+          <label>Ce que tu as ajouté
+            <textarea id="changeNote" rows="3" maxlength="500" placeholder="Ex. Un ennemi qui poursuit le joueur et fait perdre une vie au contact."></textarea>
           </label>
-
-          <label class="file-picker">
-            <span>Fichier HTML de la nouvelle version</span>
-            <input id="gameFile" name="gameFile" type="file" accept=".html,text/html" required />
-            <span id="fileName" class="file-name">Choisir un fichier…</span>
+          <label class="file">
+            <input id="gameFile" type="file" accept=".html,text/html" />
+            <span id="fileName">Choisir le fichier HTML…</span>
           </label>
-
-          <button id="testFileBtn" class="btn btn-ghost btn-wide" type="button" disabled>▶ Tester mon fichier avant publication</button>
-          <div id="testFileMessage" class="form-message" role="status"></div>
-
-          <div class="check-row">
-            <input id="confirmedTest" type="checkbox" required />
-            <label for="confirmedTest">J’ai testé cette version et les fonctions précédentes marchent toujours.</label>
-          </div>
-
-          <button id="uploadBtn" class="btn btn-primary btn-wide" type="submit">Publier cette version</button>
-          <div id="formMessage" class="form-message" role="status"></div>
+          <button id="uploadBtn" class="btn btn-primary btn-wide" type="submit">Publier</button>
+          <p id="formMessage" class="message" role="status"></p>
         </form>
-      </div>
-    </section>
+      </section>
 
-    <section class="panel history-panel">
-      <div class="section-heading history-heading">
-        <div>
-          <div class="eyebrow">Mémoire du projet</div>
-          <h2>Historique des versions</h2>
-        </div>
-        <span id="versionCount" class="count-badge">0 version</span>
-      </div>
-      <div id="historyList" class="history-list"></div>
-    </section>
-
-
-    <section class="panel admin-panel">
-      <details id="adminDetails">
-        <summary>Administration</summary>
-        <div class="admin-content">
-          <div id="adminLoggedOut">
-            <p class="muted">Entre le petit code admin pour faire apparaître les boutons de suppression dans l’historique.</p>
-            <form id="adminLoginForm" class="admin-login-form">
-              <label>
-                Code admin
-                <input id="adminPin" type="password" inputmode="numeric" autocomplete="off" required placeholder="Code" />
-              </label>
-              <button id="adminLoginBtn" class="btn btn-secondary" type="submit">Déverrouiller</button>
-              <div id="adminMessage" class="form-message" role="status"></div>
-            </form>
-          </div>
-
-          <div id="adminLoggedIn" hidden>
-            <div class="admin-status-row">
-              <div>
-                <div class="eyebrow">Mode administrateur actif</div>
-                <strong>Suppression autorisée</strong>
-              </div>
-              <button id="adminLogoutBtn" class="btn btn-ghost" type="button">Verrouiller</button>
-            </div>
-            <p class="muted">Les boutons « Supprimer » apparaissent maintenant dans l’historique. La v1 reste protégée dans l’interface.</p>
-          </div>
-        </div>
-      </details>
-    </section>
-
-    <section class="panel concept-panel">
-      <div class="eyebrow">La règle d’or</div>
-      <h2>Ajouter, pas remplacer.</h2>
-      <div class="concept-grid">
-        <div><strong>Une seule amélioration</strong><span>Une règle, un bonus, un ennemi, un effet, une idée absurde…</span></div>
-        <div><strong>IA au choix</strong><span>ChatGPT, Claude, Grok, Copilot… peu importe : le défi porte sur la manière de guider l’IA.</span></div>
-        <div><strong>Non-régression</strong><span>La nouvelle fonction ne doit pas supprimer ou casser les précédentes.</span></div>
-        <div><strong>Relais propre</strong><span>On ne publie que lorsqu’on a réellement testé la version obtenue.</span></div>
-      </div>
-      <details>
-        <summary>Afficher un prompt conseillé</summary>
+      <details class="card">
+        <summary>Comment ça marche</summary>
+        <ul class="rules">
+          <li>Télécharge une version, ajoute <b>une</b> idée avec ChatGPT, Claude, Copilot ou autre, puis dépose le fichier obtenu.</li>
+          <li>Ajouter, pas remplacer : ce qui existe déjà doit continuer à fonctionner.</li>
+        </ul>
+        <p class="meta">Prompt conseillé :</p>
         <pre>Voici la dernière version du programme.
 Je veux ajouter UNE nouvelle fonctionnalité : [décris précisément ton idée].
 
@@ -167,12 +82,21 @@ Contraintes :
 - corrige tout conflit éventuel ;
 - renvoie-moi le fichier HTML complet, prêt à être enregistré et testé.</pre>
       </details>
-    </section>
-  </main>
 
-  <footer>
-    Atelier IA collaboratif — le jeu devient progressivement votre Frankenstein numérique collectif.
-  </footer>
+      <details id="adminDetails" class="card admin">
+        <summary>Administration</summary>
+        <form id="adminLoginForm" class="admin-form">
+          <input id="adminPin" type="password" inputmode="numeric" autocomplete="off" placeholder="Code admin" />
+          <button class="btn" type="submit">Déverrouiller</button>
+        </form>
+        <div id="adminLoggedIn" class="admin-form" hidden>
+          <span class="meta">Mode administrateur : boutons « Supprimer » visibles (la v1 reste protégée).</span>
+          <button id="adminLogoutBtn" class="btn" type="button">Verrouiller</button>
+        </div>
+        <p id="adminMessage" class="message" role="status"></p>
+      </details>
+    </aside>
+  </main>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="config.js"></script>
